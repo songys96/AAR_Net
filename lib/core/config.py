@@ -104,3 +104,5 @@ def get_model_name(cfg):
     name = '{model}'.format(model=cfg.MODEL)
     full_name = '{name}'.format(name=name)
     return name, full_name
+
+print(config)
