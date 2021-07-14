@@ -32,6 +32,38 @@ def timer(func):
 
 class AIHubDataset():
     '''
+    return 
+    gt_dt = [
+        {
+            "images" : [img_1, img_2, img_3],              # img = image path
+            "keypoints" : [[15,3],[15,3],[15,3],...],      # 15 points, 3 channel(x, y, existence)
+            "meta" :                                      
+                { 
+                    seq, species, action, location, 
+                    height, width, animal, owner, inspect
+                } 
+        },
+
+        {
+            "images" : video_folder_2,
+            "keypoints" : [{kp_1},{kp_2},{kp_2}],
+            "meta" : {}
+        }
+        
+        ...
+    ]
+
+    * CAUTION *
+    Korean Encoding Error can be occured.
+    so you should change Folder Name 
+    원천데이터_1    ->     source_1
+    라벨링데이터_1   ->     label_1
+
+    if Training:
+        root will be Training folder containing 9 label folders and 9 source folders 
+    elif Validating:
+        root will be Validating folder containing a folder
+
     "keypoints": {
         0: "nose",
         1: "center_forehead",
@@ -56,22 +88,10 @@ class AIHubDataset():
             [13,9],[13,10],[9,11],[10,12],
             [13,14]
         ]
+    
     '''
     def __init__(self, cfg, root, transform=None):
-        """
-        * CAUTION *
-        Korean Encoding Error can be occured.
-        so you should change Folder Name 
-        원천데이터_1    ->     source_1
-        라벨링데이터_1   ->     label_1
 
-        if Training:
-            root will be Training folder contain 9folders
-        elif Validating:
-            root will be Validating folder
-
-
-        """
         # super().__init__(cfg, root, transform)
         # self.nms_thre = cfg.TEST.NMS_THRE
         # self.image_thre = cfg.TEST.IMAGE_THRE
@@ -103,12 +123,13 @@ class AIHubDataset():
         """
         return format
         {
-            "file_video" : videopath,
+            "images" : images,
             "keypoints" : [{kp_1},{kp_2},{kp_2}],
             "meta" : meta
         }
         """
         gt_db = self._load_data()
+        print(np.array(gt_db[0]['keypoints']).shape)
         return gt_db
 
     @timer
@@ -150,7 +171,6 @@ class AIHubDataset():
                 if os.path.exists(os.path.join(video_folder,img_name)):
                     images.append(img_name)
                     keypoints.append(keypoint)
-                return
             # get metadata
             metadata = video_info["metadata"]
 
@@ -166,9 +186,6 @@ class AIHubDataset():
             else:
                 i += 1        
         return data
-            
-
-
             
     def _load_annotations(self):
         annotation_files = []
@@ -191,11 +208,20 @@ class AIHubDataset():
 
     def _make_keypoint_to_np(self, keypoint):
         """
-        {'1': {'x': 430, 'y':405}, ...} => [ [430,405], [242,345], ... ]
+        {'1': {'x': 430, 'y':405}, ...} => [ [430,405,1], [0, 0, 0], ... ]
         """
+        keypoints = []
         for i in range(15):
-            id = i+1
-            x, y = keypoint[id]['x'], keypoint[id]['y']
+            id = str(i+1)
+            if keypoint[id] is not None:
+                x, y = keypoint[id]['x'], keypoint[id]['y']
+                keypoints.append([x,y,1])
+            else:
+                keypoints.append([0,0,0])
+        if len(keypoints) != self.num_joints:
+            raise ValueError
+
+        return np.array(keypoints)
 
 
 
