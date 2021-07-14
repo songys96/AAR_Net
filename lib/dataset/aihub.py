@@ -14,7 +14,8 @@ from collections import OrderedDict
 
 import json
 import numpy as np
-# from dataset.JointsVideoDataset import JointsVideoDataset
+from JointsVideoDataset import JointsVideoDataset
+
 
 logger = logging.getLogger(__name__)
 
@@ -30,10 +31,10 @@ def timer(func):
         return value
     return wrapper_timer
 
-class AIHubDataset():
+class AIHubDataset(JointsVideoDataset):
     '''
-    return 
-    gt_dt = [
+    :param return 
+    [
         {
             "images" : [img_1, img_2, img_3],              # img = image path
             "keypoints" : [[15,3],[15,3],[15,3],...],      # 15 points, 3 channel(x, y, existence)
@@ -90,9 +91,8 @@ class AIHubDataset():
         ]
     
     '''
-    def __init__(self, cfg, root, transform=None):
-
-        # super().__init__(cfg, root, transform)
+    def __init__(self, cfg, root, is_train, transform=None):
+        # super().__init__(cfg, root, is_train, transform)
         # self.nms_thre = cfg.TEST.NMS_THRE
         # self.image_thre = cfg.TEST.IMAGE_THRE
         # self.oks_thre = cfg.TEST.OKS_THRE
@@ -129,7 +129,6 @@ class AIHubDataset():
         }
         """
         gt_db = self._load_data()
-        print(np.array(gt_db[0]['keypoints']).shape)
         return gt_db
 
     @timer
@@ -169,10 +168,14 @@ class AIHubDataset():
                 keypoint = self._make_keypoint_to_np(frame_info['keypoints'])
                 img_name = f'frame_{frame_number}_timestamp_{timestamp}.jpg'
                 if os.path.exists(os.path.join(video_folder,img_name)):
-                    images.append(img_name)
+                    # if need resize, here's good place to do
+                    images.append(os.path.join(video_folder,img_name))
                     keypoints.append(keypoint)
+
             # get metadata
             metadata = video_info["metadata"]
+            metadata['filename'] = anno
+            metadata['frames'] = len(images)
 
             data.append(
                 {
@@ -180,11 +183,7 @@ class AIHubDataset():
                     "keypoints" : keypoints,
                     "meta" : metadata
                 }
-            )    
-            if i > 5:
-                break
-            else:
-                i += 1        
+            )      
         return data
             
     def _load_annotations(self):
@@ -280,5 +279,7 @@ class AIHubDataset():
             return name_value, name_value['AP']
         else:
             return {'Null': 0}, 0
-a = AIHubDataset("cfg", "/Users/song-yunsang/Desktop/Business/Butler/Dataset/test/aihub")
-
+            
+a = AIHubDataset("cfg", "/Users/song-yunsang/Desktop/Business/Butler/Dataset/test/aihub", False)
+sample = a[1]
+# print(sample)
