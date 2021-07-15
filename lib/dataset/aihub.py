@@ -14,7 +14,7 @@ from collections import OrderedDict
 
 import json
 import numpy as np
-from JointsVideoDataset import JointsVideoDataset
+from .JointsVideoDataset import JointsVideoDataset
 
 
 logger = logging.getLogger(__name__)
@@ -31,6 +31,31 @@ def timer(func):
         return value
     return wrapper_timer
 
+
+KEY_NAME = {
+    0: "nose",
+    1: "center_forehead",
+    2: "end_mouth",
+    3: "center_mouth",
+    4: "neck",
+    5: "front_right_shoulder",
+    6: "front_left_shoulder",
+    7: "front_right_ankle",
+    8: "front_left_ankle",
+    9: "back_right_femur",
+    10: "back_left_femur",
+    11: "back_right_ankle",
+    12: "back_left_ankle",
+    13: "tail_start",
+    14: "tail_end",
+},
+SKELETON = [
+        [0,1],[1,2],[2,3],[0,4],[1,4],[3,4],
+        [4,13],
+        [4,5],[4,6],[5,7],[6,8],
+        [13,9],[13,10],[9,11],[10,12],
+        [13,14]
+    ]
 class AIHubDataset(JointsVideoDataset):
     '''
     :param return 
@@ -64,35 +89,10 @@ class AIHubDataset(JointsVideoDataset):
         root will be Training folder containing 9 label folders and 9 source folders 
     elif Validating:
         root will be Validating folder containing a folder
-
-    "keypoints": {
-        0: "nose",
-        1: "center_forehead",
-        2: "end_mouth",
-        3: "center_mouth",
-        4: "neck",
-        5: "front_right_shoulder",
-        6: "front_left_shoulder",
-        7: "front_right_ankle",
-        8: "front_left_ankle",
-        9: "back_right_femur",
-        10: "back_left_femur",
-        11: "back_right_ankle",
-        12: "back_left_ankle",
-        13: "tail_start",
-        14: "tail_end",
-    },
-	"skeleton": [
-            [0,1],[1,2],[2,3],[0,4],[1,4],[3,4],
-            [4,13],
-            [4,5],[4,6],[5,7],[6,8],
-            [13,9],[13,10],[9,11],[10,12],
-            [13,14]
-        ]
-    
     '''
-    def __init__(self, cfg, root, is_train, transform=None):
-        # super().__init__(cfg, root, is_train, transform)
+
+    def __init__(self, cfg, root, is_train, transform=None, debug=False):
+        super().__init__(cfg, root, is_train, transform)
         # self.nms_thre = cfg.TEST.NMS_THRE
         # self.image_thre = cfg.TEST.IMAGE_THRE
         # self.oks_thre = cfg.TEST.OKS_THRE
@@ -112,6 +112,7 @@ class AIHubDataset(JointsVideoDataset):
         self.num_joints = 15
         self.flip_pairs = [[5, 6], [7, 8], [9, 10], [11, 12]]
         self.parent_ids = None
+        self.debug = debug
 
         self.errors = {"no_vid":[], "no_json":[]}
         self.db = self._get_db()
@@ -172,10 +173,12 @@ class AIHubDataset(JointsVideoDataset):
                     images.append(os.path.join(video_folder,img_name))
                     keypoints.append(keypoint)
 
-            # get metadata
+            # set metadata
             metadata = video_info["metadata"]
             metadata['filename'] = anno
             metadata['frames'] = len(images)
+            metadata['key_name'] = KEY_NAME
+            metadata['skeleton'] = SKELETON
 
             data.append(
                 {
@@ -184,8 +187,13 @@ class AIHubDataset(JointsVideoDataset):
                     "meta" : metadata
                 }
             )      
+
+            if self.debug == True:
+                i += 1
+                if i == 10:
+                    break
         return data
-            
+
     def _load_annotations(self):
         annotation_files = []
         for folder_name in sorted(os.listdir(self.root)):
@@ -224,62 +232,63 @@ class AIHubDataset(JointsVideoDataset):
 
 
 
-    # need double check this API and classes field
-    def evaluate(self, cfg, preds, output_dir, all_boxes, img_path,
-                 *args, **kwargs):
-        res_folder = os.path.join(output_dir, 'results')
-        if not os.path.exists(res_folder):
-            os.makedirs(res_folder)
-        res_file = os.path.join(
-            res_folder, 'keypoints_%s_results.json' % self.image_set)
 
-        # person x (keypoints)
-        _kpts = []
-        for idx, kpt in enumerate(preds):
-            _kpts.append({
-                'keypoints': kpt,
-                'center': all_boxes[idx][0:2],
-                'scale': all_boxes[idx][2:4],
-                'area': all_boxes[idx][4],
-                'score': all_boxes[idx][5],
-                'image': int(img_path[idx][-16:-4])
-            })
-        # image x person x (keypoints)
-        kpts = defaultdict(list)
-        for kpt in _kpts:
-            kpts[kpt['image']].append(kpt)
 
-        # rescoring and oks nms
-        num_joints = self.num_joints
-        in_vis_thre = self.in_vis_thre
-        oks_thre = self.oks_thre
-        oks_nmsed_kpts = []
-        for img in kpts.keys():
-            img_kpts = kpts[img]
-            for n_p in img_kpts:
-                box_score = n_p['score']
-                kpt_score = 0
-                valid_num = 0
-                for n_jt in range(0, num_joints):
-                    t_s = n_p['keypoints'][n_jt][2]
-                    if t_s > in_vis_thre:
-                        kpt_score = kpt_score + t_s
-                        valid_num = valid_num + 1
-                if valid_num != 0:
-                    kpt_score = kpt_score / valid_num
-                # rescoring
-                n_p['score'] = kpt_score * box_score
 
-        self._write_coco_keypoint_results(
-            oks_nmsed_kpts, res_file)
-        if 'test' not in self.image_set:
-            info_str = self._do_python_keypoint_eval(
-                res_file, res_folder)
-            name_value = OrderedDict(info_str)
-            return name_value, name_value['AP']
-        else:
-            return {'Null': 0}, 0
+    # # need double check this API and classes field
+    # def evaluate(self, cfg, preds, output_dir, all_boxes, img_path,
+    #              *args, **kwargs):
+    #     res_folder = os.path.join(output_dir, 'results')
+    #     if not os.path.exists(res_folder):
+    #         os.makedirs(res_folder)
+    #     res_file = os.path.join(
+    #         res_folder, 'keypoints_%s_results.json' % self.image_set)
+
+    #     # person x (keypoints)
+    #     _kpts = []
+    #     for idx, kpt in enumerate(preds):
+    #         _kpts.append({
+    #             'keypoints': kpt,
+    #             'center': all_boxes[idx][0:2],
+    #             'scale': all_boxes[idx][2:4],
+    #             'area': all_boxes[idx][4],
+    #             'score': all_boxes[idx][5],
+    #             'image': int(img_path[idx][-16:-4])
+    #         })
+    #     # image x person x (keypoints)
+    #     kpts = defaultdict(list)
+    #     for kpt in _kpts:
+    #         kpts[kpt['image']].append(kpt)
+
+    #     # rescoring and oks nms
+    #     num_joints = self.num_joints
+    #     in_vis_thre = self.in_vis_thre
+    #     oks_thre = self.oks_thre
+    #     oks_nmsed_kpts = []
+    #     for img in kpts.keys():
+    #         img_kpts = kpts[img]
+    #         for n_p in img_kpts:
+    #             box_score = n_p['score']
+    #             kpt_score = 0
+    #             valid_num = 0
+    #             for n_jt in range(0, num_joints):
+    #                 t_s = n_p['keypoints'][n_jt][2]
+    #                 if t_s > in_vis_thre:
+    #                     kpt_score = kpt_score + t_s
+    #                     valid_num = valid_num + 1
+    #             if valid_num != 0:
+    #                 kpt_score = kpt_score / valid_num
+    #             # rescoring
+    #             n_p['score'] = kpt_score * box_score
+
+    #     self._write_coco_keypoint_results(
+    #         oks_nmsed_kpts, res_file)
+    #     if 'test' not in self.image_set:
+    #         info_str = self._do_python_keypoint_eval(
+    #             res_file, res_folder)
+    #         name_value = OrderedDict(info_str)
+    #         return name_value, name_value['AP']
+    #     else:
+    #         return {'Null': 0}, 0
             
-a = AIHubDataset("cfg", "/Users/song-yunsang/Desktop/Business/Butler/Dataset/test/aihub", False)
-sample = a[1]
-# print(sample)
+

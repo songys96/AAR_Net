@@ -36,13 +36,12 @@ class JointsVideoDataset(Dataset):
         self.is_train = is_train
         self.root = root
 
-        # self.output_path = cfg.OUTPUT_DIR
-        # self.data_format = cfg.DATASET.DATA_FORMAT
+        self.output_path = cfg.OUTPUT_DIR
 
+        ## todo: will be added on config
         # self.scale_factor = cfg.DATASET.SCALE_FACTOR
         # self.rotation_factor = cfg.DATASET.ROT_FACTOR
         # self.flip = cfg.DATASET.FLIP
-
         # self.image_size = cfg.MODEL.IMAGE_SIZE
         # self.target_type = cfg.MODEL.EXTRA.TARGET_TYPE
         # self.heatmap_size = cfg.MODEL.EXTRA.HEATMAP_SIZE
@@ -55,6 +54,7 @@ class JointsVideoDataset(Dataset):
         raise NotImplementedError
 
     def evaluate(self, cfg, preds, output_dir, *args, **kwargs):
+        return
         raise NotImplementedError
 
     def __len__(self,):
@@ -62,8 +62,9 @@ class JointsVideoDataset(Dataset):
 
     def __getitem__(self, idx):
         """
-            db = {
-                "images" : [img1, img2,...],
+        :param return
+            {
+                "images" : [frames, width, height, channel],
                 "keypoints" : (frames, 3),
                 "meta": {
                     "filename": json_path,
@@ -76,27 +77,38 @@ class JointsVideoDataset(Dataset):
 
         # image files to numpy 
         # return (frames, channel, heigth, width)
-        images = db_rec['images']
-        images_np = []
-        for image in images:
+        images_db = db_rec['images']
+        images = []
+        for image in images_db:
             if not os.path.exists(image):
                 print("Image is not exists")
             img_np = cv2.imread(image, cv2.IMREAD_COLOR | cv2.IMREAD_IGNORE_ORIENTATION)
-            images_np.append(img_np)
-        images_np = np.array(images_np)
+            images.append(img_np)
 
-        if len(images_np) == 0:
+        if len(images) == 0:
             logger.error('=> fail to read {}'.format(db_rec['meta']['filename']))
             raise ValueError('Fail to read {}'.format(db_rec['meta']['filename']))
 
         keypoints = db_rec['keypoints']
-        keypoints_np = np.array(keypoints)
-
         meta = db_rec['meta']
 
-        return images_np, keypoints_np, meta
+        sample = {
+            "images" : images,
+            "keypoints" : keypoints,
+            "meta" : meta
+        }
 
-        # todo: have to understand
+        ## todo: this will be modified
+        if self.transform:
+            sample = self.transform(sample)
+
+        else:
+            sample['images'] = np.array(images)
+            sample['keypoints'] = np.array(keypoints)
+
+        return sample
+
+        ## todo: have to understand
 
         # joints = db_rec['joints_3d']
         # joints_vis = db_rec['joints_3d_vis']
