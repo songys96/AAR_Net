@@ -131,5 +131,3 @@ LICENSES = [
     {'url': 'http://lifelibrary.synology.me', 'id': 0, 'name': 'Attribution-NonCommercial-ShareAlike License'},
     
     ]
-
-CATEGORY_FILE = 

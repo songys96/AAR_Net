@@ -6,77 +6,30 @@ from os.path import join as joinpath
 from os.path import exists as isExisted
 from os.path import abspath as abspath
 
-from aihub_config import KEY_NAME, SKELETON, SPECIES, INFO, LICENSES, CATEGORY_FILE
+from aihub_config import KEY_NAME, SKELETON, SPECIES, INFO, LICENSES
 
 class AIHubDataset():
 
     def __init__(self):
         self.cat = None
 
-    def createCategory(self, label_root_folder, output_folder):
-        """
-        read all label_count.json which created by self.seperateByCounts
-        :param return list
-        [
-            {
-                supercategory   : CAT or DOG,
-                id              : 0,
-                name            : breed (ex. maltiz)
-                keypoints       : ["nose", ...]
-                skeleton        : [[0,2], ...]
-            }, ...
-        ]
-        """
-        check = []
-        categories = []
-        cat_id = 0
-        cat_dict = {'breed':{"CAT":{},"DOG":{}}, 'id':{}}
-        for label in sorted(os.listdir(label_root_folder)):
-            if label.split(".")[0][-5:] != "count":
-                continue
-            filename = joinpath(label_root_folder, label)
-            if not isExisted(filename):
-                raise FileNotFoundError
-            with open(filename, "r") as f:
-                data = json.load(f)
-                for supercategory in data:
-                    if supercategory == "total":
-                        continue
-                    breeds = data[supercategory].keys()
-                    for breed in breeds:
-                        if not breed in check:
-                            category = {}
-                            category['supercategory'] = supercategory
-                            category['id'] = cat_id
-                            category['name'] = SPECIES[breed]
-                            category['keypoints'] = KEY_NAME
-                            category['skeleton'] = SKELETON
-                            categories.append(category)
-
-                            cat_dict['breed'][supercategory][SPECIES[breed]] = cat_id
-                            cat_dict['id'][cat_id] = {"supercategory":supercategory, 'breed' : SPECIES[breed]}
-
-                            check.append(breed)
-                            cat_id += 1
-
-        cat_main_file = joinpath(output_folder, "aihub_categories.json")
-        cat_id_file = joinpath(output_folder, "aihub_category_index.json")
-        with open(cat_main_file, "w") as f:
-            json.dump(categories, f)
-        with open(cat_id_file, "w") as f:
-            json.dump(cat_dict, f)
-
-        return cat_main_file, cat_id_file
-
+    # todo : translate to eng
     def seperateBySpecies(self, source_folder, output_folder, count=True):
+        
         annos = {}
         folder_name = source_folder.split("/")[-1]
+        file_out = joinpath(output_folder, f'{folder_name}_species.json')
+        if isExisted(file_out):
+            print("Already File Exists")
+            return file_out, output_folder
+        
         for anno in sorted(os.listdir(source_folder)):
             filename = joinpath(source_folder, anno)
             with open(filename, "r") as f:
                 info = json.load(f)
                 species = info['metadata']['species']
                 breed = info['metadata']['animal']['breed']
+                breed = SPECIES[breed]
 
                 breed_dict = annos.get(species, {})
                 filename_list = breed_dict.get(breed, [])
@@ -84,7 +37,6 @@ class AIHubDataset():
                 breed_dict[breed] = filename_list
                 annos[species] = breed_dict
 
-        file_out = joinpath(output_folder, f'{folder_name}_species.json')
 
         with open(file_out, "w", encoding="utf-8") as f:
             json.dump(annos, f)
@@ -92,7 +44,7 @@ class AIHubDataset():
         if count == True:
             self.seperateByCounts(file_out, output_folder)
         
-        return file_out
+        return file_out, output_folder
 
     def seperateByCounts(self, jsonf, output_folder):
         """
@@ -119,17 +71,75 @@ class AIHubDataset():
         
         return filename
     
+    def createCategory(self, species_count_folder, output_folder):
+        """
+        read all label_species.json which created by self.seperateByCounts
+        :param return list
+        [
+            {
+                supercategory   : CAT or DOG,
+                id              : 0,
+                name            : breed (ex. maltiz)
+                keypoints       : ["nose", ...]
+                skeleton        : [[0,2], ...]
+            }, ...
+        ]
+        """
+        check = []
+        categories = []
+        cat_id = 0
+        cat_dict = {'breed':{"CAT":{},"DOG":{}}, 'id':{}}
+
+        cat_main_file = joinpath(output_folder, f"aihub_categories.json")
+        cat_id_file = joinpath(output_folder, f"aihub_category_index.json")
+
+        if isExisted(cat_main_file) and isExisted(cat_id_file):
+            print("Already File Exists")
+            return cat_main_file, cat_id_file
+
+        if not isExisted(species_count_folder):
+            raise FileNotFoundError
+        for species_file in os.listdir(species_count_folder):
+            if not "count" in species_file:
+                continue
+
+            with open(joinpath(species_count_folder, species_file), "r") as f:
+                data = json.load(f)
+                for supercategory in data:
+                    if supercategory == "total":
+                        continue
+                    breeds = data[supercategory].keys()
+                    for breed in breeds:
+                        if not breed in check:
+                            category = {}
+                            category['supercategory'] = supercategory
+                            category['id'] = cat_id
+                            category['name'] = breed
+                            category['keypoints'] = KEY_NAME
+                            category['skeleton'] = SKELETON
+                            categories.append(category)
+
+                            cat_dict['breed'][supercategory][breed] = cat_id
+                            cat_dict['id'][cat_id] = {"supercategory":supercategory, 'breed' : breed}
+
+                            check.append(breed)
+                            cat_id += 1
+
+        with open(cat_main_file, "w") as f:
+            json.dump(categories, f)
+        with open(cat_id_file, "w") as f:
+            json.dump(cat_dict, f)
+
+        return cat_main_file, cat_id_file
 
 
-
-
-
-    def convertToCOCO(self, source_folder, category_file, output_folder, config_file=False):
+    # Important
+    def convertToCOCO(self, label_folder, cat_file, output_folder, config_file):
         """ 
-        :param source_folder : ./path/Dataset/label_x
+        :param label_folder : ./path/Dataset/label_x
         :param category_file : ./path/Dataset/aihub_categories.json
         :param output_folder : ./path/Dataset/
-        :param config        : ./path/Dataset/aihub_config.py
+        :param config        : ./path/Dataset/config.json
         :return 
             {
                 info:           {'description': 'AI Hub Dataset', 'url': 'https://aihub.or.kr/aidata/34146', 'version': '1.0', 'year': 2020}
@@ -143,30 +153,31 @@ class AIHubDataset():
         # config contained current img_id, vid_id, process
         if config_file:
             img_id, vid_id, process = self._loadConfig(config_file)
-            if source_folder.split("/")[-1] in process:
+            if label_folder.split("/")[-1] in process:
                 print("already existed on config.json")
-                return 
+                return None, config_file
         else:
+            config_file = joinpath(output_folder, "config.json")
             img_id, vid_id, process = 0, 0, []
 
         # load default setting
         info_coco = INFO
         lic_coco = LICENSES
-        cat_coco = self.loadCategoryFile()
+        cat_coco = self.loadCategoryFile(cat_file)
         
         if not self.cat:
             raise FileNotFoundError
         
         coco = {}
-        coco_id = source_folder.split("/")[-1][-1]
+        coco_id = label_folder.split("/")[-1][-1]
 
         images = []
         annotations = []
         videos = []
-
+        i = 0
         # iterate json file from folder 
-        for anno in sorted(os.listdir(source_folder)):
-            filename = joinpath(source_folder, anno)
+        for anno in sorted(os.listdir(label_folder)):
+            filename = joinpath(label_folder, anno)
             # video_name : /source_x/vid.mp4
             video_name = self._getVideoName(filename)                                   
             video = {"vid_name": video_name, 'images': [], 'id': vid_id}
@@ -186,7 +197,7 @@ class AIHubDataset():
 
             videos.append(video)
             vid_id += 1
-            break
+
         coco['info'] = info_coco
         coco['licenses'] = lic_coco
         coco['images'] = images
@@ -198,13 +209,13 @@ class AIHubDataset():
         with open(output_file, "w") as f:
             json.dump(coco, f)
 
-        self._updateConfig(config_file, source_folder, img_id, vid_id, process)
+        self._updateConfig(config_file, label_folder, img_id, vid_id, process)
 
-        return coco
+        return coco, config_file
 
-    def loadCategoryFile(self):
+    def loadCategoryFile(self, cat_file):
         try:
-            with open(CATEGORY_FILE, "r") as f:
+            with open(cat_file, "r") as f:
                 category = json.load(f)
             self.cat = category
             return category
@@ -256,7 +267,7 @@ class AIHubDataset():
         }
         return anno_coco
     
-    def _loadConfig(config_file):
+    def _loadConfig(self, config_file):
         with open(config_file, "r") as f:
             config = json.load(f)
         try:
@@ -266,7 +277,6 @@ class AIHubDataset():
         except:
             print("config file is not properly constructed")
             raise ValueError
-            img_id, vid_id, process = 0, 0, []
         return img_id, vid_id, process
     
     def _updateConfig(self, config_file, source_folder, img_id, vid_id, process):
@@ -278,7 +288,8 @@ class AIHubDataset():
             'process': process
         }
         with open(config_file, "w") as f:
-            json.dump(config, f)
+            a = json.dump(config, f)
+        return
 
 
     def _getVideoName(self, filename):
@@ -286,7 +297,6 @@ class AIHubDataset():
         video_src = "source_" + filename.split(".json")[0].split("/")[-2].split("_")[-1]
         video_name = filename.split(".json")[0].split("/")[-1]
         video_name = joinpath(video_src, video_name)
-        print(video_name)
 
     def _alignSkeleton(self, meta_keypoints):
         """
@@ -320,34 +330,54 @@ class AIHubDataset():
         print("_findCategoryId, cannot find category id from self.cat")
         raise ValueError
 
-if __file__ == "__main__":
-    SRC_LABEL = "/Users/song-yunsang/Desktop/Business/Butler/Dataset/test/aihub/label_9"
-    OUTPUT = "/Users/song-yunsang/Desktop/Business/Butler/Dataset/test/aihub/CustomSet"
+if __name__ == "__main__":
+    SRC_LABEL = "/Users/song-yunsang/Desktop/Business/Butler/Dataset/test/aihub/"
+    OUTPUT_ROOT = "/Users/song-yunsang/Desktop/Business/Butler/Dataset/test/aihub/CustomSet"
+    OUTPUT_SPECIES = joinpath(OUTPUT_ROOT, "species")
+    OUTPUT_CATEGORIES = joinpath(OUTPUT_ROOT, "categories")
+    OUTPUT_COCO = joinpath(OUTPUT_ROOT, "coco")
+
+    def createFolderIfNotExists(path_list):
+        for p in path_list:
+            if not isExisted(p):
+                os.mkdir(p)
+    createFolderIfNotExists([OUTPUT_SPECIES, OUTPUT_CATEGORIES, OUTPUT_COCO])
+
     dataset = AIHubDataset()
 
     print("Start Seperating")
-    dataset.seperateBySpecies(SRC_LABEL, OUTPUT)
+    for i in range(9):
+        dataset.seperateBySpecies(SRC_LABEL + f"label_{i+1}", OUTPUT_SPECIES)
+        print(SRC_LABEL + f"label_{i+1}", 'is Done')
+
     print("Seperated Done")
-    
     print("-"*20)
+    print("Start Categorizing")
+
+    cat, cat_id = dataset.createCategory(OUTPUT_SPECIES, OUTPUT_CATEGORIES)
+
+    print("Categorizing Done")
+    print("-"*20)
+    print("Start Convert to COCO")
+
+    config_file = False
+    coco_total = None
+
+    for i in range(9):
+        coco, config_file = dataset.convertToCOCO(SRC_LABEL + f'/label_{i+1}', cat, OUTPUT_COCO, config_file=config_file)
+        if coco_total is None:
+            coco_total = coco
+        else:
+            coco_total['images'].extend(coco['images'])
+            coco_total['annotations'].extend(coco['annotations'])
+            coco_total['videos'].extend(coco['videos'])
+
+    with open(joinpath(OUTPUT_ROOT,"aihub_coco.json"), "w") as f:
+        json.dump(coco_total, f)
     
-    # print("Start Categorizing")
-    # dataset.createCategory(SRC_LABEL, OUTPUT)
-    # print("Categorizing Done")
+    print("coco dataset is Created!!")
+    print(coco_total.keys())
+    print(len(coco['images']))
+    print(len(coco['annotations']))
+    print(len(coco['videos']))
 
-    # print("-"*20)
-    # dataset.convertToCOCO()
-
-
-
-
-# SRC_VID = "/Users/song-yunsang/Desktop/Business/Butler/Dataset/test/aihub/source_9"
-# label_root = "/Users/song-yunsang/Desktop/Business/Butler/Dataset/test/aihub/"
-# label_output = joinpath(label_root, "aihub_coco")
-
-# coco = "/Users/song-yunsang/Desktop/Business/Butler/Develop/Dataset/coco/val2017/annotations/person_keypoints_val2017.json"
-
-# kp = AIHubDataset(label_root)
-# kp.convertToCOCO(SRC_LABEL, label_root+"/aihub_categories.json", label_root)
-
-# # co = AIHubDataset.readAnnotation(coco)
