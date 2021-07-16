@@ -8,7 +8,7 @@ from os.path import abspath as abspath
 
 from aihub_config import KEY_NAME, SKELETON, SPECIES, INFO, LICENSES
 
-class AIHubDataset():
+class AIHubConveter():
 
     def __init__(self):
         self.cat = None
@@ -200,7 +200,7 @@ class AIHubDataset():
                     video['images'].append(img_coco['id'])
 
                     img_id += 1
-                    break
+                    
             videos.append(video)
             vid_id += 1
 
@@ -340,6 +340,7 @@ class AIHubDataset():
 if __name__ == "__main__":
     SRC_LABEL = "/Users/song-yunsang/Desktop/Business/Butler/Dataset/test/aihub/"
     OUTPUT_ROOT = "/Users/song-yunsang/Desktop/Business/Butler/Dataset/test/aihub/CustomSet"
+
     OUTPUT_SPECIES = joinpath(OUTPUT_ROOT, "species")
     OUTPUT_CATEGORIES = joinpath(OUTPUT_ROOT, "categories")
     OUTPUT_COCO = joinpath(OUTPUT_ROOT, "coco")
@@ -350,7 +351,7 @@ if __name__ == "__main__":
                 os.mkdir(p)
     createFolderIfNotExists([OUTPUT_SPECIES, OUTPUT_CATEGORIES, OUTPUT_COCO])
 
-    dataset = AIHubDataset()
+    dataset = AIHubConveter()
 
     print("Start Seperating")
     for i in range(9):
@@ -371,7 +372,7 @@ if __name__ == "__main__":
     coco_total = None
 
     for i in range(9):
-        coco, config_file = dataset.convertToCOCO(SRC_LABEL + f'/label_{i+1}', cat, OUTPUT_COCO, config_file=config_file, only=['papillon'])
+        coco, config_file = dataset.convertToCOCO(SRC_LABEL + f'/label_{i+1}', cat, OUTPUT_COCO, config_file=config_file, only=['maltese'])
         if coco_total is None:
             coco_total = coco
         else:
@@ -382,9 +383,4 @@ if __name__ == "__main__":
     with open(joinpath(OUTPUT_ROOT,"aihub_coco.json"), "w") as f:
         json.dump(coco_total, f)
     
-    print("coco dataset is Created!!")
-    print(coco_total.keys())
-    print(len(coco['images']))
-    print(len(coco['annotations']))
-    print(len(coco['videos']))
 
