@@ -134,12 +134,13 @@ class AIHubDataset():
 
 
     # Important
-    def convertToCOCO(self, label_folder, cat_file, output_folder, config_file):
+    def convertToCOCO(self, label_folder, cat_file, output_folder, config_file, only=False):
         """ 
         :param label_folder : ./path/Dataset/label_x
         :param category_file : ./path/Dataset/aihub_categories.json
         :param output_folder : ./path/Dataset/
         :param config        : ./path/Dataset/config.json
+        :param only          : ['maltese', ...]
         :return 
             {
                 info:           {'description': 'AI Hub Dataset', 'url': 'https://aihub.or.kr/aidata/34146', 'version': '1.0', 'year': 2020}
@@ -185,6 +186,11 @@ class AIHubDataset():
                 # :param data   ->  keys : [file_videos, metadata, annotations]
                 data = json.load(f)
                 meta = data['metadata']
+                # This is for select dog or cat 's breed
+                if only:
+                    breed = meta['animal']['breed']
+                    if not SPECIES[breed] in only:
+                        continue
                 for frame in data['annotations']:
                     img_coco = self.createCOCOImageFormat(img_id, vid_id, filename, frame, meta)
                     anno_coco = self.createCOCOAnnotationFormat(img_id, frame, meta)
@@ -194,7 +200,7 @@ class AIHubDataset():
                     video['images'].append(img_coco['id'])
 
                     img_id += 1
-
+                    break
             videos.append(video)
             vid_id += 1
 
@@ -288,7 +294,7 @@ class AIHubDataset():
             'process': process
         }
         with open(config_file, "w") as f:
-            a = json.dump(config, f)
+            json.dump(config, f)
         return
 
 
@@ -297,6 +303,7 @@ class AIHubDataset():
         video_src = "source_" + filename.split(".json")[0].split("/")[-2].split("_")[-1]
         video_name = filename.split(".json")[0].split("/")[-1]
         video_name = joinpath(video_src, video_name)
+        return video_name
 
     def _alignSkeleton(self, meta_keypoints):
         """
@@ -364,7 +371,7 @@ if __name__ == "__main__":
     coco_total = None
 
     for i in range(9):
-        coco, config_file = dataset.convertToCOCO(SRC_LABEL + f'/label_{i+1}', cat, OUTPUT_COCO, config_file=config_file)
+        coco, config_file = dataset.convertToCOCO(SRC_LABEL + f'/label_{i+1}', cat, OUTPUT_COCO, config_file=config_file, only=['papillon'])
         if coco_total is None:
             coco_total = coco
         else:
