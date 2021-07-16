@@ -181,7 +181,7 @@ class JointsVideoDataset(Dataset):
     #                           dtype=np.float32)
 
     #         tmp_size = self.sigma * 3
-
+    
     #         for joint_id in range(self.num_joints):
     #             feat_stride = self.image_size / self.heatmap_size
     #             mu_x = int(joints[joint_id][0] / feat_stride[0] + 0.5)
@@ -194,7 +194,7 @@ class JointsVideoDataset(Dataset):
     #                 # If not, just return the image as is
     #                 target_weight[joint_id] = 0
     #                 continue
-
+    
     #             # # Generate gaussian
     #             size = 2 * tmp_size + 1
     #             x = np.arange(0, size, 1, np.float32)
