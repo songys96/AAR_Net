@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 KEY_NAME = [
     "nose",
     "center_forehead",
@@ -117,3 +119,17 @@ SPECIES ={
     '데본렉스': "Devon Rex",
     '라이코이': "Raikoy"
 }
+
+INFO = {
+    'description': 'AI Hub Dataset', 
+    'url': 'https://aihub.or.kr/aidata/34146', 
+    'version': '1.0', 
+    'year': 2021
+    }
+
+LICENSES = [
+    {'url': 'http://lifelibrary.synology.me', 'id': 0, 'name': 'Attribution-NonCommercial-ShareAlike License'},
+    
+    ]
+
+CATEGORY_FILE = 
