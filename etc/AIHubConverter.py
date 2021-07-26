@@ -134,12 +134,12 @@ class AIHubConveter():
 
 
     # Important
-    def convertToCOCO(self, label_folder, cat_file, output_folder, config_file, only=False):
+    def convertToCOCO(self, label_folder, output_folder, cat_file=None, config_file=None, only=False):
         """ 
         :param label_folder : ./path/Dataset/label_x
         :param category_file : ./path/Dataset/aihub_categories.json
         :param output_folder : ./path/Dataset/
-        :param config        : ./path/Dataset/config.json
+        :param config        : ./path/Dataset/config.json               # 중복 방지 확인 및 기록
         :param only          : ['maltese', ...]
         :return 
             {
@@ -164,7 +164,10 @@ class AIHubConveter():
         # load default setting
         info_coco = INFO
         lic_coco = LICENSES
-        cat_coco = self.loadCategoryFile(cat_file)
+        if cat_file:
+            cat_coco = self._loadCategoryFile(cat_file)
+        else:
+            cat_coco = self._createCategoryFile()
         
         if not self.cat:
             raise FileNotFoundError
@@ -219,7 +222,18 @@ class AIHubConveter():
 
         return coco, config_file
 
-    def loadCategoryFile(self, cat_file):
+    def _createCategoryFile(self):
+        category = [{
+            "supercategory": "Animal",
+            "id": 0,
+            "name": "animal",
+            "keypoints": ["nose", "center_forehead", "end_mouth", "center_mouth", "neck", "front_right_shoulder", "front_left_shoulder", "front_right_ankle", "front_left_ankle", "back_right_femur", "back_left_femur", "back_right_ankle", "back_left_ankle", "tail_start", "tail_end"], 
+            "skeleton": [[0, 1], [1, 2], [2, 3], [0, 4], [1, 4], [3, 4], [4, 13], [4, 5], [4, 6], [5, 7], [6, 8], [13, 9], [13, 10], [9, 11], [10, 12], [13, 14]]
+        }]
+        self.cat = category
+        return category
+
+    def _loadCategoryFile(self, cat_file):
         try:
             with open(cat_file, "r") as f:
                 category = json.load(f)
@@ -229,8 +243,6 @@ class AIHubConveter():
             print("loadCategoryFile, cannot read CATEGORY FILE, plz check aihub_config.py")
             raise ValueError
     
-
-
     def createCOCOImageFormat(self, img_id, vid_id, filename, frame, meta):
         license = 0
         video_src = "source_" + filename.split(".json")[0].split("/")[-2].split("_")[-1]
@@ -297,7 +309,6 @@ class AIHubConveter():
             json.dump(config, f)
         return
 
-
     def _getVideoName(self, filename):
         # ./path/label_x/vid.mp4.json   =>  ./path/source_x/vid.mp4
         video_src = "source_" + filename.split(".json")[0].split("/")[-2].split("_")[-1]
@@ -331,9 +342,13 @@ class AIHubConveter():
         return bbox
 
     def _findCategoryId(self, breed):
+        if len(self.cat) == 1:
+            return 0
+
         for c in self.cat:
             if c['name'] == breed:
                 return c['id']
+
         print("_findCategoryId, cannot find category id from self.cat")
         raise ValueError
 
