@@ -353,47 +353,48 @@ class AIHubConveter():
         raise ValueError
 
 if __name__ == "__main__":
-    SRC_LABEL = "/Users/song-yunsang/Desktop/Business/Butler/Dataset/test/aihub/"
-    OUTPUT_ROOT = "/Users/song-yunsang/Desktop/Business/Butler/Dataset/test/aihub/CustomSet"
-
-    OUTPUT_SPECIES = joinpath(OUTPUT_ROOT, "species")
-    OUTPUT_CATEGORIES = joinpath(OUTPUT_ROOT, "categories")
-    OUTPUT_COCO = joinpath(OUTPUT_ROOT, "coco")
-
-    def createFolderIfNotExists(path_list):
-        for p in path_list:
-            if not isExisted(p):
-                os.mkdir(p)
-    createFolderIfNotExists([OUTPUT_SPECIES, OUTPUT_CATEGORIES, OUTPUT_COCO])
-
+    SRC_LABEL = "/home/butler/Desktop/Dataset/aihub/Training"
+    OUTPUT_ROOT = "/home/butler/Desktop/Dataset/aihub/Training/COCO"
+    #
+    # OUTPUT_SPECIES = joinpath(OUTPUT_ROOT, "species")
+    # OUTPUT_CATEGORIES = joinpath(OUTPUT_ROOT, "categories")
+    # OUTPUT_COCO = joinpath(OUTPUT_ROOT, "coco")
+    #
+    # def createFolderIfNotExists(path_list):
+    #     for p in path_list:
+    #         if not isExisted(p):
+    #             os.mkdir(p)
+    # createFolderIfNotExists([OUTPUT_SPECIES, OUTPUT_CATEGORIES, OUTPUT_COCO])
+    #
     dataset = AIHubConveter()
-
-    print("Start Seperating")
-    for i in range(9):
-        dataset.seperateBySpecies(SRC_LABEL + f"label_{i+1}", OUTPUT_SPECIES)
-        print(SRC_LABEL + f"label_{i+1}", 'is Done')
-
-    print("Seperated Done")
-    print("-"*20)
-    print("Start Categorizing")
-
-    cat, cat_id = dataset.createCategory(OUTPUT_SPECIES, OUTPUT_CATEGORIES)
-
-    print("Categorizing Done")
-    print("-"*20)
-    print("Start Convert to COCO")
+    #
+    # print("Start Seperating")
+    # for i in range(9):
+    #     dataset.seperateBySpecies(SRC_LABEL + f"label_{i+1}", OUTPUT_SPECIES)
+    #     print(SRC_LABEL + f"label_{i+1}", 'is Done')
+    #
+    # print("Seperated Done")
+    # print("-"*20)
+    # print("Start Categorizing")
+    #
+    # cat, cat_id = dataset.createCategory(OUTPUT_SPECIES, OUTPUT_CATEGORIES)
+    #
+    # print("Categorizing Done")
+    # print("-"*20)
+    # print("Start Convert to COCO")
 
     config_file = False
     coco_total = None
 
-    for i in range(9):
-        coco, config_file = dataset.convertToCOCO(SRC_LABEL + f'/label_{i+1}', cat, OUTPUT_COCO, config_file=config_file, only=['maltese'])
+    for i in range(6, 9):
+        coco, config_file = dataset.convertToCOCO(SRC_LABEL + f'/label_{i+1}', OUTPUT_ROOT)
         if coco_total is None:
             coco_total = coco
         else:
             coco_total['images'].extend(coco['images'])
             coco_total['annotations'].extend(coco['annotations'])
             coco_total['videos'].extend(coco['videos'])
+        print(f'label_{i+1} is created')
 
     with open(joinpath(OUTPUT_ROOT,"aihub_coco.json"), "w") as f:
         json.dump(coco_total, f)
